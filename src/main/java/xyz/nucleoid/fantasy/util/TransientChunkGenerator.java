@@ -2,16 +2,16 @@ package xyz.nucleoid.fantasy.util;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.registry.RegistryOps;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.world.biome.GenerationSettings;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 
 import java.util.function.Function;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeGenerationSettings;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 
 /**
  * A {@link ChunkGenerator} instance that does not know how to be, and does not care to be serialized.
@@ -23,19 +23,19 @@ import java.util.function.Function;
  */
 public abstract class TransientChunkGenerator extends ChunkGenerator {
     public static final MapCodec<? extends ChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-            RegistryOps.getEntryCodec(BiomeKeys.THE_VOID)
+            RegistryOps.retrieveElement(Biomes.THE_VOID)
     ).apply(i, VoidChunkGenerator::new));
 
     public TransientChunkGenerator(BiomeSource biomeSource) {
         super(biomeSource);
     }
 
-    public TransientChunkGenerator(BiomeSource biomeSource, Function<RegistryEntry<Biome>, GenerationSettings> generationSettingsGetter) {
+    public TransientChunkGenerator(BiomeSource biomeSource, Function<Holder<Biome>, BiomeGenerationSettings> generationSettingsGetter) {
         super(biomeSource, generationSettingsGetter);
     }
 
     @Override
-    protected final MapCodec<? extends ChunkGenerator> getCodec() {
+    protected final MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 }

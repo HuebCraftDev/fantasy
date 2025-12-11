@@ -2,42 +2,32 @@ package xyz.nucleoid.fantasy.util;
 
 import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.GameRules;
+import net.minecraft.world.level.gamerules.GameRule;
+import net.minecraft.world.level.gamerules.GameRules;
 import org.jetbrains.annotations.Nullable;
 
 public final class GameRuleStore {
-    private final Reference2BooleanMap<GameRules.Key<GameRules.BooleanRule>> booleanRules = new Reference2BooleanOpenHashMap<>();
-    private final Reference2IntMap<GameRules.Key<GameRules.IntRule>> intRules = new Reference2IntOpenHashMap<>();
+    private final Reference2ObjectMap<GameRule<?>, Object> rules = new Reference2ObjectOpenHashMap<>();
 
-    public void set(GameRules.Key<GameRules.BooleanRule> key, boolean value) {
-        this.booleanRules.put(key, value);
+    public <T> void set(GameRule<T> key, T value) {
+        this.rules.put(key, value);
     }
 
-    public void set(GameRules.Key<GameRules.IntRule> key, int value) {
-        this.intRules.put(key, value);
+
+
+    public <T>T get(GameRule<T> key) {
+        return (T) this.rules.get(key);
     }
 
-    public boolean getBoolean(GameRules.Key<GameRules.BooleanRule> key) {
-        return this.booleanRules.getBoolean(key);
-    }
-
-    public int getInt(GameRules.Key<GameRules.IntRule> key) {
-        return this.intRules.getInt(key);
-    }
-
-    public boolean contains(GameRules.Key<?> key) {
-        return this.booleanRules.containsKey(key) || this.intRules.containsKey(key);
+    public boolean contains(GameRule<?> key) {
+        return this.rules.containsKey(key);
     }
 
     public void applyTo(GameRules rules, @Nullable MinecraftServer server) {
-        Reference2BooleanMaps.fastForEach(this.booleanRules, entry -> {
-            GameRules.BooleanRule rule = rules.get(entry.getKey());
-            rule.set(entry.getBooleanValue(), server);
+        Reference2ObjectMaps.fastForEach(this.rules, entry -> {
+            //noinspection unchecked
+            rules.set((GameRule<? super Object>) entry.getKey(), entry.getValue(), server);
         });
 
-        Reference2IntMaps.fastForEach(this.intRules, entry -> {
-            GameRules.IntRule rule = rules.get(entry.getKey());
-            rule.value = entry.getIntValue();
-        });
     }
 }

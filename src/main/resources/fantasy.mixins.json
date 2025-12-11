@@ -6,11 +6,11 @@
   "mixins": [
     "MinecraftServerAccess",
     "MinecraftServerMixin",
-    "ServerChunkManagerMixin",
-    "ServerWorldMixin",
-    "ServerChunkLoadingManagerMixin",
-    "registry.DimensionOptionsMixin",
-    "registry.SimpleRegistryMixin",
+    "ServerChunkCacheMixin",
+    "ServerLevelMixin",
+    "ChunkMapMixin",
+    "registry.LevelStemMixin",
+    "registry.MappedRegistryMixin",
     "registry.WorldGenSettingsMixin"
   ],
   "injectors": {

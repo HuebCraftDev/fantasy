@@ -1,12 +1,12 @@
 package xyz.nucleoid.fantasy.mixin.registry;
 
-import net.minecraft.world.dimension.DimensionOptions;
+import net.minecraft.world.level.dimension.LevelStem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import xyz.nucleoid.fantasy.FantasyDimensionOptions;
 
-@Mixin(DimensionOptions.class)
-public class DimensionOptionsMixin implements FantasyDimensionOptions {
+@Mixin(LevelStem.class)
+public class LevelStemMixin implements FantasyDimensionOptions {
     @Unique private boolean fantasy$save = true;
     @Unique private boolean fantasy$saveProperties = true;
 

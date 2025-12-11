@@ -1,6 +1,5 @@
-accessWidener v1 named
+accessWidener	v1	named
 
-accessible class net/minecraft/server/world/ServerChunkLoadingManager$EntityTracker
-
-accessible field net/minecraft/world/GameRules$IntRule value I
-accessible field net/minecraft/server/world/ServerWorld shouldTickTime Z
+accessible	class	net/minecraft/server/level/ChunkMap$TrackedEntity
+accessible	field	net/minecraft/world/GameRules$IntRule	value	I
+accessible	field	net/minecraft/server/level/ServerLevel	tickTime	Z

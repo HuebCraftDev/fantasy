@@ -5,17 +5,17 @@ import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.minecraft.command.argument.IdentifierArgumentType;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.TeleportTarget;
-import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.world.dimension.DimensionTypes;
-import net.minecraft.world.gen.chunk.FlatChunkGenerator;
-import net.minecraft.world.gen.chunk.FlatChunkGeneratorConfig;
+import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.worldgen.DimensionTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
+import net.minecraft.world.level.levelgen.FlatLevelSource;
+import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
+import net.minecraft.world.level.portal.TeleportTransition;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
@@ -26,8 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-import static net.minecraft.server.command.CommandManager.argument;
-import static net.minecraft.server.command.CommandManager.literal;
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
 
 public final class FantasyInitializer implements ModInitializer {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -37,41 +37,41 @@ public final class FantasyInitializer implements ModInitializer {
     public void onInitialize() {
         ServerLifecycleEvents.SERVER_STARTED.register((s) -> {
             Fantasy.get(s).openTemporaryWorld(
-                    new RuntimeWorldConfig().setGenerator(new VoidChunkGenerator(s.getRegistryManager().getOrThrow(RegistryKeys.BIOME).getEntry(0).get())).setWorldConstructor(CustomWorld::new)
+                    new RuntimeWorldConfig().setGenerator(new VoidChunkGenerator(s.registryAccess().lookupOrThrow(Registries.BIOME).get(0).orElseThrow())).setWorldConstructor(CustomLevel::new)
             );
 
             Fantasy.get(s).openTemporaryWorld(
-                    new RuntimeWorldConfig().setGenerator(s.getOverworld().getChunkManager().getChunkGenerator()).setWorldConstructor(CustomWorld::new)
+                    new RuntimeWorldConfig().setGenerator(s.overworld().getChunkSource().getGenerator()).setWorldConstructor(CustomLevel::new)
             );
 
-            var biome = s.getRegistryManager().getOrThrow(RegistryKeys.BIOME).getOrThrow(BiomeKeys.PLAINS);
-            FlatChunkGeneratorConfig flat = new FlatChunkGeneratorConfig(Optional.empty(), biome, List.of());
-            FlatChunkGenerator generator = new FlatChunkGenerator(flat);
+            var biome = s.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS);
+            var flat = new FlatLevelGeneratorSettings(Optional.empty(), biome, List.of());
+            var generator = new FlatLevelSource(flat);
 
             Fantasy.get(s).openTemporaryWorld(new RuntimeWorldConfig()
-                    .setDimensionType(DimensionTypes.OVERWORLD)
+                    .setDimensionType(BuiltinDimensionTypes.OVERWORLD)
                     .setGenerator(generator)
                     .setShouldTickTime(true));
         });
 
         CommandRegistrationCallback.EVENT.register(((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("fantasy_open").then(
-                    argument("name", IdentifierArgumentType.identifier())
+                    argument("name", IdentifierArgument.id())
                             .then(argument("temp", BoolArgumentType.bool())
                                     .executes((context -> {
-                                        ServerCommandSource source = context.getSource();
+                                        var source = context.getSource();
                                         try {
                                             var temp = BoolArgumentType.getBool(context, "temp");
                                             var ref = new Object() {
                                                 long t = System.currentTimeMillis();
                                             };
 
-                                            var id = IdentifierArgumentType.getIdentifier(context, "name");
+                                            var id = IdentifierArgument.getId(context, "name");
 
                                             RuntimeWorldHandle x;
                                             var config = new RuntimeWorldConfig()
-                                                    .setGenerator(source.getServer().getOverworld().getChunkManager().getChunkGenerator())
-                                                    .setDimensionType(source.getServer().getOverworld().getDimensionEntry())
+                                                    .setGenerator(source.getServer().overworld().getChunkSource().getGenerator())
+                                                    .setDimensionType(source.getServer().overworld().dimensionTypeRegistration())
                                                     .setSeed(id.hashCode());
 
                                             if (temp) {
@@ -81,20 +81,20 @@ public final class FantasyInitializer implements ModInitializer {
                                                  x = Fantasy.get(source.getServer()).getOrOpenPersistentWorld(id, config);
                                             }
 
-                                            source.sendFeedback(() -> Text.literal("WorldCreate: " + (System.currentTimeMillis() - ref.t)), false);
+                                            source.sendSuccess(() -> Component.literal("WorldCreate: " + (System.currentTimeMillis() - ref.t)), false);
 
                                             this.worlds.put(id, x);
 
                                             ref.t = System.currentTimeMillis();
                                             if (source.getEntity() != null) {
-                                                source.getEntity().teleportTo(new TeleportTarget(x.asWorld(), new Vec3d(0, 100, 0), Vec3d.ZERO, 0, 0, TeleportTarget.NO_OP));
+                                                source.getEntity().teleport(new TeleportTransition(x.asWorld(), new Vec3(0, 100, 0), Vec3.ZERO, 0, 0, TeleportTransition.DO_NOTHING));
                                             }
 
-                                            source.sendFeedback(() -> Text.literal("Teleport: " + (System.currentTimeMillis() - ref.t)), false);
+                                            source.sendSuccess(() -> Component.literal("Teleport: " + (System.currentTimeMillis() - ref.t)), false);
                                             return 1;
                                         } catch (Throwable e) {
                                             LOGGER.error("Failed to open world", e);
-                                            source.sendError(Text.literal("Failed to open world"));
+                                            source.sendFailure(Component.literal("Failed to open world"));
                                             return 0;
                                         }
                                     }))
@@ -102,43 +102,43 @@ public final class FantasyInitializer implements ModInitializer {
             ));
 
             dispatcher.register(literal("fantasy_delete").then(
-                    argument("name", IdentifierArgumentType.identifier())
+                    argument("name", IdentifierArgument.id())
                             .executes(context -> {
-                                ServerCommandSource source = context.getSource();
+                                var source = context.getSource();
                                 try {
-                                    var id = IdentifierArgumentType.getIdentifier(context, "name");
+                                    var id = IdentifierArgument.getId(context, "name");
                                     if (this.worlds.get(id) == null) {
-                                        source.sendError(Text.literal("This world does not exist"));
+                                        source.sendFailure(Component.literal("This world does not exist"));
                                         return 0;
                                     }
                                     this.worlds.get(id).delete();
                                     this.worlds.remove(id);
 
-                                    source.sendFeedback(() -> Text.literal("World \"" + id + "\" deleted"), true);
+                                    source.sendSuccess(() -> Component.literal("World \"" + id + "\" deleted"), true);
                                 } catch (Throwable e) {
                                     LOGGER.error("Failed to delete world", e);
-                                    source.sendError(Text.literal("Failed to delete world"));
+                                    source.sendFailure(Component.literal("Failed to delete world"));
                                 }
                                 return 1;
                             })
             ));
 
             dispatcher.register(literal("fantasy_unload").then(
-                    argument("name", IdentifierArgumentType.identifier())
+                    argument("name", IdentifierArgument.id())
                             .executes(context -> {
-                                ServerCommandSource source = context.getSource();
+                                var source = context.getSource();
                                 try {
-                                    var id = IdentifierArgumentType.getIdentifier(context, "name");
+                                    var id = IdentifierArgument.getId(context, "name");
                                     if (this.worlds.get(id) == null) {
-                                        source.sendError(Text.literal("This world does not exist"));
+                                        source.sendFailure(Component.literal("This world does not exist"));
                                         return 0;
                                     }
                                     this.worlds.get(id).unload();
                                     this.worlds.remove(id);
-                                    source.sendFeedback(() -> Text.literal("World \"" + id + "\" unloaded"), true);
+                                    source.sendSuccess(() -> Component.literal("World \"" + id + "\" unloaded"), true);
                                 } catch (Throwable e) {
                                     LOGGER.error("Failed to unload world", e);
-                                    source.sendError(Text.literal("Failed to unload world"));
+                                    source.sendFailure(Component.literal("Failed to unload world"));
                                 }
 
                                 return 1;

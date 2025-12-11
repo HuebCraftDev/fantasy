@@ -1,19 +1,19 @@
 package xyz.nucleoid.fantasy;
 
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.GameRules;
-import net.minecraft.world.SaveProperties;
-import net.minecraft.world.level.UnmodifiableLevelProperties;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.storage.DerivedLevelData;
+import net.minecraft.world.level.storage.WorldData;
 
-public final class RuntimeWorldProperties extends UnmodifiableLevelProperties {
-    protected final RuntimeWorldConfig config;
+public final class RuntimeWorldProperties extends DerivedLevelData {
+    final RuntimeWorldConfig config;
     private final GameRules rules;
 
-    public RuntimeWorldProperties(SaveProperties saveProperties, RuntimeWorldConfig config) {
-        super(saveProperties, saveProperties.getMainWorldProperties());
+    public RuntimeWorldProperties(WorldData saveProperties, RuntimeWorldConfig config) {
+        super(saveProperties, saveProperties.overworldData());
         this.config = config;
 
-        this.rules = new GameRules(saveProperties.getEnabledFeatures());
+        this.rules = new GameRules(saveProperties.enabledFeatures());
         config.getGameRules().applyTo(this.rules, null);
     }
 
@@ -26,12 +26,12 @@ public final class RuntimeWorldProperties extends UnmodifiableLevelProperties {
     }
 
     @Override
-    public void setTimeOfDay(long timeOfDay) {
+    public void setDayTime(long timeOfDay) {
         this.config.setTimeOfDay(timeOfDay);
     }
 
     @Override
-    public long getTimeOfDay() {
+    public long getDayTime() {
         return this.config.getTimeOfDay();
     }
 

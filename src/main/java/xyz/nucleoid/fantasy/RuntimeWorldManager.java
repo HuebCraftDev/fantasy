@@ -1,18 +1,18 @@
 package xyz.nucleoid.fantasy;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.SimpleRegistry;
-import net.minecraft.registry.entry.RegistryEntryInfo;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.RegistrationInfo;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProgressListener;
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.DimensionOptions;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.storage.LevelStorageSource;
 import org.apache.commons.io.FileUtils;
 import xyz.nucleoid.fantasy.mixin.MinecraftServerAccess;
 
@@ -28,27 +28,27 @@ final class RuntimeWorldManager {
         this.serverAccess = (MinecraftServerAccess) server;
     }
 
-    RuntimeWorld add(RegistryKey<World> worldKey, RuntimeWorldConfig config, RuntimeWorld.Style style) {
-        DimensionOptions options = config.createDimensionOptions(this.server);
+    RuntimeWorld add(ResourceKey<Level> worldKey, RuntimeWorldConfig config, RuntimeWorld.Style style) {
+        LevelStem options = config.createDimensionOptions(this.server);
 
         if (style == RuntimeWorld.Style.TEMPORARY) {
             ((FantasyDimensionOptions) (Object) options).fantasy$setSave(false);
         }
         ((FantasyDimensionOptions) (Object) options).fantasy$setSaveProperties(false);
 
-        SimpleRegistry<DimensionOptions> dimensionsRegistry = getDimensionsRegistry(this.server);
+        MappedRegistry<LevelStem> dimensionsRegistry = getDimensionsRegistry(this.server);
         boolean isFrozen = ((RemoveFromRegistry<?>) dimensionsRegistry).fantasy$isFrozen();
         ((RemoveFromRegistry<?>) dimensionsRegistry).fantasy$setFrozen(false);
 
-        var key = RegistryKey.of(RegistryKeys.DIMENSION, worldKey.getValue());
-        if(!dimensionsRegistry.contains(key)) {
-            dimensionsRegistry.add(key, options, RegistryEntryInfo.DEFAULT);
+        var key = ResourceKey.create(Registries.LEVEL_STEM, worldKey.identifier());
+        if(!dimensionsRegistry.containsKey(key)) {
+            dimensionsRegistry.register(key, options, RegistrationInfo.BUILT_IN);
         }
         ((RemoveFromRegistry<?>) dimensionsRegistry).fantasy$setFrozen(isFrozen);
 
         RuntimeWorld world = config.getWorldConstructor().createWorld(this.server, worldKey, config, style);
 
-        this.serverAccess.getWorlds().put(world.getRegistryKey(), world);
+        this.serverAccess.getLevels().put(world.dimension(), world);
         ServerWorldEvents.LOAD.invoker().onWorldLoad(this.server, world);
 
         // tick the world to ensure it is ready for use right away
@@ -57,17 +57,17 @@ final class RuntimeWorldManager {
         return world;
     }
 
-    void delete(ServerWorld world) {
-        RegistryKey<World> dimensionKey = world.getRegistryKey();
+    void delete(ServerLevel world) {
+        ResourceKey<Level> dimensionKey = world.dimension();
 
-        if (this.serverAccess.getWorlds().remove(dimensionKey, world)) {
+        if (this.serverAccess.getLevels().remove(dimensionKey, world)) {
             ServerWorldEvents.UNLOAD.invoker().onWorldUnload(this.server, world);
 
-            SimpleRegistry<DimensionOptions> dimensionsRegistry = getDimensionsRegistry(this.server);
-            RemoveFromRegistry.remove(dimensionsRegistry, dimensionKey.getValue());
+            MappedRegistry<LevelStem> dimensionsRegistry = getDimensionsRegistry(this.server);
+            RemoveFromRegistry.remove(dimensionsRegistry, dimensionKey.identifier());
 
-            LevelStorage.Session session = this.serverAccess.getSession();
-            File worldDirectory = session.getWorldDirectory(dimensionKey).toFile();
+            LevelStorageSource.LevelStorageAccess session = this.serverAccess.getStorageSource();
+            File worldDirectory = session.getDimensionPath(dimensionKey).toFile();
             if (worldDirectory.exists()) {
                 try {
                     FileUtils.deleteDirectory(worldDirectory);
@@ -82,36 +82,36 @@ final class RuntimeWorldManager {
         }
     }
 
-    void unload(ServerWorld world) {
-        RegistryKey<World> dimensionKey = world.getRegistryKey();
+    void unload(ServerLevel world) {
+        ResourceKey<Level> dimensionKey = world.dimension();
 
-        if (this.serverAccess.getWorlds().remove(dimensionKey, world)) {
+        if (this.serverAccess.getLevels().remove(dimensionKey, world)) {
             world.save(new ProgressListener() {
                 @Override
-                public void setTitle(Text title) {}
+                public void progressStartNoAbort(Component title) {}
 
                 @Override
-                public void setTitleAndTask(Text title) {}
+                public void progressStart(Component title) {}
 
                 @Override
-                public void setTask(Text task) {}
+                public void progressStage(Component task) {}
 
                 @Override
                 public void progressStagePercentage(int percentage) {}
 
                 @Override
-                public void setDone() {}
+                public void stop() {}
             }, true, false);
 
             ServerWorldEvents.UNLOAD.invoker().onWorldUnload(RuntimeWorldManager.this.server, world);
 
-            SimpleRegistry<DimensionOptions> dimensionsRegistry = getDimensionsRegistry(RuntimeWorldManager.this.server);
-            RemoveFromRegistry.remove(dimensionsRegistry, dimensionKey.getValue());
+            MappedRegistry<LevelStem> dimensionsRegistry = getDimensionsRegistry(RuntimeWorldManager.this.server);
+            RemoveFromRegistry.remove(dimensionsRegistry, dimensionKey.identifier());
         }
     }
 
-    private static SimpleRegistry<DimensionOptions> getDimensionsRegistry(MinecraftServer server) {
-        DynamicRegistryManager registryManager = server.getCombinedDynamicRegistries().getCombinedRegistryManager();
-        return (SimpleRegistry<DimensionOptions>) registryManager.getOrThrow(RegistryKeys.DIMENSION);
+    private static MappedRegistry<LevelStem> getDimensionsRegistry(MinecraftServer server) {
+        RegistryAccess registryManager = server.registries().compositeAccess();
+        return (MappedRegistry<LevelStem>) registryManager.lookupOrThrow(Registries.LEVEL_STEM);
     }
 }

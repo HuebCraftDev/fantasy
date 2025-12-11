@@ -1,37 +1,37 @@
 package xyz.nucleoid.fantasy;
 
 import com.google.common.collect.ImmutableList;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProgressListener;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.random.RandomSequencesState;
-import net.minecraft.world.GameRules;
-import net.minecraft.world.World;
-import net.minecraft.world.biome.source.BiomeAccess;
-import net.minecraft.world.dimension.DimensionOptions;
-import net.minecraft.world.level.ServerWorldProperties;
-import net.minecraft.world.level.storage.LevelStorage;
-import net.minecraft.world.spawner.SpecialSpawner;
+import net.minecraft.world.RandomSequences;
+import net.minecraft.world.level.CustomSpawner;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.level.storage.ServerLevelData;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.fantasy.mixin.MinecraftServerAccess;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 
-public class RuntimeWorld extends ServerWorld {
+public class RuntimeWorld extends ServerLevel {
     final Style style;
     private boolean flat;
 
-    protected RuntimeWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, Style style) {
+    protected RuntimeWorld(MinecraftServer server, ResourceKey<Level> registryKey, RuntimeWorldConfig config, Style style) {
         super(
-                server, Util.getMainWorkerExecutor(), ((MinecraftServerAccess) server).getSession(),
-                new RuntimeWorldProperties(server.getSaveProperties(), config),
+                server, Util.backgroundExecutor(), ((MinecraftServerAccess) server).getStorageSource(),
+                new RuntimeWorldProperties(server.getWorldData(), config),
                 registryKey,
                 config.createDimensionOptions(server),
                 false,
-                BiomeAccess.hashSeed(config.getSeed()),
+                BiomeManager.obfuscateSeed(config.getSeed()),
                 ImmutableList.of(),
                 config.shouldTickTime(),
                 null
@@ -40,7 +40,7 @@ public class RuntimeWorld extends ServerWorld {
         this.flat = config.isFlat().orElse(super.isFlat());
     }
 
-    protected RuntimeWorld(MinecraftServer server, Executor workerExecutor, LevelStorage.Session session, ServerWorldProperties properties, RegistryKey<World> worldKey, DimensionOptions dimensionOptions, boolean debugWorld, long seed, List<SpecialSpawner> spawners, boolean shouldTickTime, @Nullable RandomSequencesState randomSequencesState, Style style) {
+    protected RuntimeWorld(MinecraftServer server, Executor workerExecutor, LevelStorageSource.LevelStorageAccess session, ServerLevelData properties, ResourceKey<Level> worldKey, LevelStem dimensionOptions, boolean debugWorld, long seed, List<CustomSpawner> spawners, boolean shouldTickTime, @Nullable RandomSequences randomSequencesState, Style style) {
         super(server, workerExecutor, session, properties, worldKey, dimensionOptions, debugWorld, seed, spawners, shouldTickTime, randomSequencesState);
         this.style = style;
     }
@@ -48,7 +48,7 @@ public class RuntimeWorld extends ServerWorld {
 
     @Override
     public long getSeed() {
-        return ((RuntimeWorldProperties) this.properties).config.getSeed();
+        return ((RuntimeWorldProperties) this.levelData).config.getSeed();
     }
 
     @Override
@@ -63,9 +63,9 @@ public class RuntimeWorld extends ServerWorld {
     */
     @Override
     protected void tickTime() {
-        if (this.shouldTickTime) {
-            if (this.getGameRules().getBoolean(GameRules.DO_DAYLIGHT_CYCLE)) {
-                this.setTimeOfDay(this.properties.getTimeOfDay() + 1L);
+        if (this.tickTime) {
+            if (this.getGameRules().get(GameRules.ADVANCE_TIME)) {
+                this.setDayTime(this.levelData.getDayTime() + 1L);
             }
         }
     }
@@ -81,6 +81,6 @@ public class RuntimeWorld extends ServerWorld {
     }
 
     public interface Constructor {
-        RuntimeWorld createWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, Style style);
+        RuntimeWorld createWorld(MinecraftServer server, ResourceKey<Level> registryKey, RuntimeWorldConfig config, Style style);
     }
 }

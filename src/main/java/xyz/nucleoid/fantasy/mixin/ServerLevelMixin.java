@@ -1,10 +1,5 @@
 package xyz.nucleoid.fantasy.mixin;
 
-import net.minecraft.network.packet.Packet;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerChunkManager;
-import net.minecraft.server.world.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,9 +11,14 @@ import xyz.nucleoid.fantasy.FantasyWorldAccess;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.level.ServerChunkCache;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
 
-@Mixin(ServerWorld.class)
-public abstract class ServerWorldMixin implements FantasyWorldAccess {
+@Mixin(ServerLevel.class)
+public abstract class ServerLevelMixin implements FantasyWorldAccess {
     @Unique
     private static final int TICK_TIMEOUT = 20 * 15;
 
@@ -28,10 +28,10 @@ public abstract class ServerWorldMixin implements FantasyWorldAccess {
     private int fantasy$tickTimeout;
 
     @Shadow
-    public abstract List<ServerPlayerEntity> getPlayers();
+    public abstract List<ServerPlayer> players();
 
     @Shadow
-    public abstract ServerChunkManager getChunkManager();
+    public abstract ServerChunkCache getChunkSource();
 
     @Override
     public void fantasy$setTickWhenEmpty(boolean tickWhenEmpty) {
@@ -56,21 +56,21 @@ public abstract class ServerWorldMixin implements FantasyWorldAccess {
 
     @Unique
     private boolean isWorldEmpty() {
-        return this.getPlayers().isEmpty() && this.getChunkManager().getLoadedChunkCount() <= 0;
+        return this.players().isEmpty() && this.getChunkSource().getLoadedChunksCount() <= 0;
     }
 
     @Redirect(
-            method = "tickWeather",
+            method = "advanceWeatherCycle",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/server/PlayerManager;sendToAll(Lnet/minecraft/network/packet/Packet;)V"
+                    target = "Lnet/minecraft/server/players/PlayerList;broadcastAll(Lnet/minecraft/network/protocol/Packet;)V"
             )
 
     )
-    private void dontSendRainPacketsToAllWorlds(PlayerManager instance, Packet<?> packet) {
+    private void dontSendRainPacketsToAllWorlds(PlayerList instance, Packet<?> packet) {
         // Vanilla sends rain packets to all players when rain starts in a world,
         // even if they are not in it, meaning that if it is possible to rain in the world they are in
         // the rain effect will remain until the player changes dimension or reconnects.
-        instance.sendToDimension(packet, this.getChunkManager().getWorld().getRegistryKey());
+        instance.broadcastAll(packet, this.getChunkSource().getLevel().dimension());
     }
 }

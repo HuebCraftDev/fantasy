@@ -1,14 +1,14 @@
 package xyz.nucleoid.fantasy;
 
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 
 public final class RuntimeWorldHandle {
     private final Fantasy fantasy;
-    private final ServerWorld world;
+    private final ServerLevel world;
 
-    RuntimeWorldHandle(Fantasy fantasy, ServerWorld world) {
+    RuntimeWorldHandle(Fantasy fantasy, ServerLevel world) {
         this.fantasy = fantasy;
         this.world = world;
     }
@@ -35,11 +35,11 @@ public final class RuntimeWorldHandle {
         }
     }
 
-    public ServerWorld asWorld() {
+    public ServerLevel asWorld() {
         return this.world;
     }
 
-    public RegistryKey<World> getRegistryKey() {
-        return this.world.getRegistryKey();
+    public ResourceKey<Level> getRegistryKey() {
+        return this.world.dimension();
     }
 }

@@ -1,6 +1,6 @@
 package xyz.nucleoid.fantasy.util;
 
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -8,5 +8,5 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ChunkGeneratorSettingsProvider {
     @Nullable
-    ChunkGeneratorSettings getSettings();
+    NoiseGeneratorSettings getSettings();
 }
