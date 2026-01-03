@@ -4,6 +4,7 @@ import net.minecraft.recipe.ServerRecipeManager;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
+import net.minecraft.world.level.storage.LevelStorage;
 import xyz.nucleoid.fantasy.RuntimeWorld;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 
@@ -13,11 +14,10 @@ public class CustomWorld extends RuntimeWorld {
     private long dynSeed;
     private final ServerRecipeManager recipeManager;
 
-    protected CustomWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, Style style) {
-        super(server, registryKey, config, style);
+    protected CustomWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, LevelStorage.Session storageSession, Style style) {
+        super(server, registryKey, config, storageSession, style);
         this.recipeManager = new ServerRecipeManager(server.getRegistryManager());
     }
-
 
     @Override
     public void tick(BooleanSupplier shouldKeepTicking) {

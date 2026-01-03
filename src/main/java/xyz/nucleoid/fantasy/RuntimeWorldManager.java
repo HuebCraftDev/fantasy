@@ -28,7 +28,7 @@ final class RuntimeWorldManager {
         this.serverAccess = (MinecraftServerAccess) server;
     }
 
-    RuntimeWorld add(RegistryKey<World> worldKey, RuntimeWorldConfig config, RuntimeWorld.Style style) {
+    private RuntimeWorld add(RegistryKey<World> worldKey, RuntimeWorldConfig config, LevelStorage.Session storageSession, RuntimeWorld.Style style) {
         DimensionOptions options = config.createDimensionOptions(this.server);
 
         if (style == RuntimeWorld.Style.TEMPORARY) {
@@ -46,7 +46,7 @@ final class RuntimeWorldManager {
         }
         ((RemoveFromRegistry<?>) dimensionsRegistry).fantasy$setFrozen(isFrozen);
 
-        RuntimeWorld world = config.getWorldConstructor().createWorld(this.server, worldKey, config, style);
+        RuntimeWorld world = config.getWorldConstructor().createWorld(this.server, worldKey, config, storageSession, style);
 
         this.serverAccess.getWorlds().put(world.getRegistryKey(), world);
         ServerWorldEvents.LOAD.invoker().onWorldLoad(this.server, world);
@@ -55,6 +55,15 @@ final class RuntimeWorldManager {
         world.tick(() -> true);
 
         return world;
+    }
+
+    RuntimeWorld add(RegistryKey<World> worldKey, RuntimeWorldConfig config,
+                     LevelStorage.Session storageSession) {
+        return this.add(worldKey, config, storageSession, RuntimeWorld.Style.PERSISTENT);
+    }
+
+    RuntimeWorld add(RegistryKey<World> worldKey, RuntimeWorldConfig config, RuntimeWorld.Style style) {
+        return this.add(worldKey, config, this.serverAccess.getSession(), style);
     }
 
     void delete(ServerWorld world) {

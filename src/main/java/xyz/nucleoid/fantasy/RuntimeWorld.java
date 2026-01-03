@@ -16,8 +16,6 @@ import net.minecraft.world.level.ServerWorldProperties;
 import net.minecraft.world.level.storage.LevelStorage;
 import net.minecraft.world.spawner.SpecialSpawner;
 import org.jetbrains.annotations.Nullable;
-import xyz.nucleoid.fantasy.mixin.MinecraftServerAccess;
-import xyz.nucleoid.fantasy.util.VoidWorldProgressListener;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -26,9 +24,9 @@ public class RuntimeWorld extends ServerWorld {
     final Style style;
     private boolean flat;
 
-    protected RuntimeWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, Style style) {
+    protected RuntimeWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, LevelStorage.Session storageSession, Style style) {
         super(
-                server, Util.getMainWorkerExecutor(), ((MinecraftServerAccess) server).getSession(),
+                server, Util.getMainWorkerExecutor(), storageSession,
                 new RuntimeWorldProperties(server.getSaveProperties(), config),
                 registryKey,
                 config.createDimensionOptions(server),
@@ -48,7 +46,6 @@ public class RuntimeWorld extends ServerWorld {
         this.style = style;
     }
 
-
     @Override
     public long getSeed() {
         return ((RuntimeWorldProperties) this.properties).config.getSeed();
@@ -62,8 +59,8 @@ public class RuntimeWorld extends ServerWorld {
     }
 
     /**
-    * Only use the time update code from super as the immutable world proerties runtime dimensions breaks scheduled functions
-    */
+     * Only use the time update code from super as the immutable world proerties runtime dimensions breaks scheduled functions
+     */
     @Override
     protected void tickTime() {
         if (this.shouldTickTime) {
@@ -84,6 +81,6 @@ public class RuntimeWorld extends ServerWorld {
     }
 
     public interface Constructor {
-        RuntimeWorld createWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, Style style);
+        RuntimeWorld createWorld(MinecraftServer server, RegistryKey<World> registryKey, RuntimeWorldConfig config, LevelStorage.Session storageSession, Style style);
     }
 }

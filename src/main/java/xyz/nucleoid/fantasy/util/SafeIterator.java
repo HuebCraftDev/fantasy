@@ -20,6 +20,7 @@ public final class SafeIterator<T> implements Iterator<T> {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public T next() {
         return (T) this.values[this.index++];
     }
